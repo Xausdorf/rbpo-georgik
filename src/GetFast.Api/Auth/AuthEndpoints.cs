@@ -15,6 +15,13 @@ public static class AuthEndpoints
             .WithSummary("Зарегистрировать отправителя")
             .Produces<RegisteredSenderResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem();
+        endpoints.MapPost("/auth/login", LoginAsync)
+            .AllowAnonymous()
+            .WithName("Login")
+            .WithSummary("Войти и получить токен на 30 минут")
+            .Produces<LoginResponse>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .ProducesValidationProblem();
     }
 
     private static async Task<IResult> RegisterAsync(
@@ -52,6 +59,18 @@ public static class AuthEndpoints
         !string.IsNullOrWhiteSpace(email) && email.Length <= 256 &&
         new EmailAddressAttribute().IsValid(email.Trim()) &&
         !string.IsNullOrEmpty(password) && password.Length <= 128;
+
+    private static async Task<IResult> LoginAsync(LoginRequest request, UserManager<AppUser> users, JwtTokenService tokens)
+    {
+        if (!ValidCredentials(request.Email, request.Password))
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["credentials"] = ["Нужны корректные email и пароль."] });
+
+        var user = await users.FindByEmailAsync(request.Email.Trim());
+        if (user is null || !await users.CheckPasswordAsync(user, request.Password))
+            return Results.Unauthorized();
+
+        return Results.Ok(tokens.Create(user, await users.GetRolesAsync(user)));
+    }
 
     private static IResult IdentityError(IdentityResult result) => Results.ValidationProblem(
         result.Errors.GroupBy(error => error.Code)
