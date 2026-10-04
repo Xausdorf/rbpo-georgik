@@ -19,6 +19,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow);
 builder.Services.AddSwaggerGen();
 builder.Services.AddGetFastAuthentication();
+builder.Services.AddGetFastAuthorization();
 
 var app = builder.Build();
 
@@ -40,8 +41,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthentication();
+app.UseAuthorization();
 app.MapHealthEndpoint();
 app.MapAuthEndpoints();
+app.MapRoleEndpointGroups();
 app.Run();
 
 public partial class Program;
