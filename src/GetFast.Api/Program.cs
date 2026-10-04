@@ -17,7 +17,7 @@ builder.Services.AddIdentityCore<AppUser>(options => options.User.RequireUniqueE
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow);
-builder.Services.AddSwaggerGen();
+builder.Services.AddGetFastSwagger();
 builder.Services.AddGetFastAuthentication();
 builder.Services.AddGetFastAuthorization();
 
