@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using GetFast.Api.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GetFast.Api.Tests;
@@ -81,5 +82,46 @@ public sealed class RegistrationTests(PostgreSqlFixture database) : IClassFixtur
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         using var second = await client.PostAsJsonAsync("/auth/register", new { email = email.ToUpperInvariant(), password = AuthTestData.Password() });
         Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_ConcurrentDuplicateEmail_CreatesOneSenderAndRejectsOtherRequest()
+    {
+        var email = AuthTestData.Email();
+        await using var factory = new GetFastApiFactory(database.ConnectionString);
+        await using var concurrentFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+            services.AddSingleton<IUserValidator<AppUser>>(new ConcurrentRegistrationValidator(email))));
+        using var client = concurrentFactory.CreateClient();
+        var credentials = new { email, password = AuthTestData.Password() };
+        var responses = await Task.WhenAll(
+            client.PostAsJsonAsync("/auth/register", credentials),
+            client.PostAsJsonAsync("/auth/register", credentials));
+        try
+        {
+            Assert.Equal([HttpStatusCode.Created, HttpStatusCode.BadRequest], responses.Select(response => response.StatusCode).Order().ToArray());
+            await using var scope = concurrentFactory.Services.CreateAsyncScope();
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+            Assert.Equal(1, await users.Users.CountAsync(user => user.NormalizedEmail == email.ToUpperInvariant()));
+            Assert.Equal(["Sender"], await users.GetRolesAsync((await users.FindByEmailAsync(email))!));
+        }
+        finally
+        {
+            foreach (var response in responses) response.Dispose();
+        }
+    }
+
+    // Оба реальных запроса проходят проверку до первого INSERT; запись выполняет настоящий PostgreSQL.
+    private sealed class ConcurrentRegistrationValidator(string email) : IUserValidator<AppUser>
+    {
+        private readonly TaskCompletionSource _bothValidated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _arrivals;
+
+        public async Task<IdentityResult> ValidateAsync(UserManager<AppUser> manager, AppUser user)
+        {
+            if (!string.Equals(email, user.Email, StringComparison.OrdinalIgnoreCase)) return IdentityResult.Success;
+            if (Interlocked.Increment(ref _arrivals) == 2) _bothValidated.SetResult();
+            await _bothValidated.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            return IdentityResult.Success;
+        }
     }
 }
