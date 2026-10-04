@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using GetFast.Api.Data;
 using GetFast.Api.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace GetFast.Api.Auth;
 
@@ -38,7 +40,16 @@ public static class AuthEndpoints
         await using var transaction = await database.Database.BeginTransactionAsync();
         var email = request.Email.Trim();
         var user = new AppUser { Id = Guid.NewGuid(), Email = email, UserName = email };
-        var created = await users.CreateAsync(user, request.Password);
+        IdentityResult created;
+        try
+        {
+            created = await users.CreateAsync(user, request.Password);
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+            { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "UserNameIndex" })
+        {
+            return IdentityError(IdentityResult.Failed(new IdentityError { Code = "DuplicateUserName" }));
+        }
         if (!created.Succeeded)
         {
             return IdentityError(created);
