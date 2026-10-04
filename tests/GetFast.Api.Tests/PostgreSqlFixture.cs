@@ -1,3 +1,5 @@
+using GetFast.Api.Data;
+using Microsoft.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
 
 namespace GetFast.Api.Tests;
@@ -12,7 +14,13 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
 
     public string ConnectionString => _database.GetConnectionString();
 
-    public Task InitializeAsync() => _database.StartAsync();
+    public async Task InitializeAsync()
+    {
+        await _database.StartAsync();
+        await using var context = new GetFastDbContext(new DbContextOptionsBuilder<GetFastDbContext>()
+            .UseNpgsql(ConnectionString).Options);
+        await context.Database.MigrateAsync();
+    }
 
     public Task DisposeAsync() => _database.DisposeAsync().AsTask();
 }
