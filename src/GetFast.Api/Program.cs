@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using GetFast.Api.Auth;
 using GetFast.Api.Data;
 using GetFast.Api.Endpoints;
 using GetFast.Api.Identity;
@@ -13,6 +15,8 @@ builder.Services.AddIdentityCore<AppUser>(options => options.User.RequireUniqueE
     .AddRoles<IdentityRole<Guid>>()
     .AddEntityFrameworkStores<GetFastDbContext>();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow);
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
@@ -32,6 +36,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHealthEndpoint();
+app.MapAuthEndpoints();
 app.Run();
 
 public partial class Program;
