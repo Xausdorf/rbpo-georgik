@@ -28,7 +28,7 @@ public sealed class HealthTests(PostgreSqlFixture database) : IClassFixture<Post
             Password = password,
             Timeout = 3
         }.ConnectionString;
-        await using var factory = new GetFastApiFactory(connectionString);
+        await using var factory = new GetFastApiFactory(connectionString, "Production");
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync("/health");
