@@ -60,14 +60,16 @@ docker compose down
 [ -f .env ] || cp .env.example .env
 ```
 
-Замените `CHANGE_ME` в локальном `.env` случайным паролем из букв и цифр. Если порты заняты, задайте, например, `API_PORT=18080` и `POSTGRES_PORT=55432`. Затем:
+Замените все `CHANGE_ME` в локальном `.env` по требованиям раздела «Запуск через Docker Compose»: ключ `JWT_SIGNING_KEY` — не менее 32 байт UTF-8, пароль PostgreSQL — из букв и цифр, пароли сотрудников — от 6 символов с заглавной и строчной буквами, цифрой и специальным символом.
+
+По умолчанию используются `API_PORT=8080` и `POSTGRES_PORT=5432`. Если порты заняты, измените их в `.env` и используйте выбранный `API_PORT` в запросе проверки и адресе Swagger. Для стандартного порта:
 
 ```bash
 docker compose up --build -d
-curl --fail --show-error http://localhost:18080/health
+curl --fail --show-error http://localhost:8080/health
 ```
 
-В этом примере ожидается `{"status":"healthy"}`, Swagger — `http://localhost:18080/swagger`. При `API_PORT=8080` используйте порт 8080. Для остановки: `docker compose down`. Для тестов нужен .NET 10 SDK, команды из раздела «Проверки» одинаковы для PowerShell, bash и zsh.
+Ожидается `{"status":"healthy"}`, Swagger — `http://localhost:8080/swagger` при стандартном порте. Для остановки: `docker compose down`. Для тестов нужен .NET 10 SDK, команды из раздела «Проверки» одинаковы для PowerShell, bash и zsh.
 
 ## Запуск API через .NET SDK
 
